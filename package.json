@@ -8,6 +8,11 @@
     "dev:maplibre": "vite examples/maplibre",
     "dev:leaflet": "vite examples/leaflet"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "devDependencies": {
     "@turf/turf": "^7.3.4",
     "@types/geojson": "^7946.0.16",
