@@ -2,6 +2,12 @@ import { asyncBufferFromUrl, parquetQuery, type AsyncBuffer } from "hyparquet";
 import { compressors } from "hyparquet-compressors";
 import type { FeatureCollection, Geometry, Feature, BBox } from "geojson";
 
+export type GeoconnexColumnName =
+  | "id"
+  | "geometry"
+  | "bbox"
+  | "geoconnex_sitemap";
+
 /**
  * A client for fetching geojson features from geoconnex
  */
@@ -21,7 +27,10 @@ export class GeoconnexClient {
    * @param bbox [xmin, ymin, xmax, ymax]
    * @returns a feature collection of all features contained in the bbox
    */
-  async get_features_inside_bbox(bbox: BBox): Promise<FeatureCollection<Geometry>> {
+  async get_features_inside_bbox(
+    bbox: BBox,
+    columns_to_fetch: GeoconnexColumnName[] = ["id", "geometry"],
+  ): Promise<FeatureCollection<Geometry>> {
     if (!this.#buffer) {
       this.#buffer = await asyncBufferFromUrl({ url: this.base_url });
     }
@@ -39,7 +48,7 @@ export class GeoconnexClient {
 
     const rows = await parquetQuery({
       file: this.#buffer,
-      columns: ["id", "geometry"],
+      columns: columns_to_fetch,
       filter: {
         "bbox.xmin": { $gte: xmin, $lte: xmax },
         "bbox.ymin": { $gte: ymin, $lte: ymax },
@@ -58,7 +67,7 @@ export class GeoconnexClient {
     return {
       type: "FeatureCollection",
       features,
-      bbox
+      bbox,
     };
   }
 
@@ -67,8 +76,11 @@ export class GeoconnexClient {
    * return very large features representing administrative boundaries
    * @param bbox [xmin, ymin, xmax, ymax]
    * @returns a feature collection of all features contained in the bbox
-  */
-  async get_features_intersecting_bbox(bbox: BBox): Promise<FeatureCollection<Geometry>> {
+   */
+  async get_features_intersecting_bbox(
+    bbox: BBox,
+    columns_to_fetch: GeoconnexColumnName[] = ["id", "geometry"],
+  ): Promise<FeatureCollection<Geometry>> {
     if (!this.#buffer) {
       this.#buffer = await asyncBufferFromUrl({ url: this.base_url });
     }
@@ -86,7 +98,7 @@ export class GeoconnexClient {
 
     const rows = await parquetQuery({
       file: this.#buffer,
-      columns: ["id", "geometry"],
+      columns: columns_to_fetch,
       filter: {
         "bbox.xmin": { $lte: xmax },
         "bbox.xmax": { $gte: xmin },
@@ -107,7 +119,7 @@ export class GeoconnexClient {
     return {
       type: "FeatureCollection",
       features,
-      bbox
+      bbox,
     };
   }
 }
