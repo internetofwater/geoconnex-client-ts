@@ -6,14 +6,17 @@
   "scripts": {
     "build": "tsc",
     "dev:maplibre": "vite examples/maplibre",
-    "dev:leaflet": "vite examples/leaflet"
+    "dev:leaflet": "vite examples/leaflet",
+    "dev:script": "npx tsx examples/script/index.ts"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "@turf/turf": "^7.3.4",
     "@types/geojson": "^7946.0.16",

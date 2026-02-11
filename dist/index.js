@@ -41,13 +41,21 @@ export class GeoconnexClient {
             compressors,
             geoparquet: true,
         });
-        const features = rows.map((row) => ({
-            type: "Feature",
-            geometry: row.geometry,
-            properties: {
-                id: row.id,
-            },
-        }));
+        const features = rows.map((row) => {
+            const properties = {};
+            // Only add geoconnex_sitemap if it was requested and exists in the row
+            if (columns_to_fetch.includes("geoconnex_sitemap")) {
+                properties.geoconnex_sitemap = row.geoconnex_sitemap;
+            }
+            if (columns_to_fetch.includes("id")) {
+                properties.id = row.id;
+            }
+            return {
+                type: "Feature",
+                geometry: row.geometry,
+                properties,
+            };
+        });
         return {
             type: "FeatureCollection",
             features,
@@ -86,13 +94,21 @@ export class GeoconnexClient {
             compressors,
             geoparquet: true,
         });
-        const features = rows.map((row) => ({
-            type: "Feature",
-            geometry: row.geometry,
-            properties: {
-                id: row.id,
-            },
-        }));
+        const features = rows.map((row) => {
+            const properties = {};
+            // Only add geoconnex_sitemap if it was requested and exists in the row
+            if (columns_to_fetch.includes("geoconnex_sitemap")) {
+                properties.geoconnex_sitemap = row.geoconnex_sitemap;
+            }
+            if (columns_to_fetch.includes("id")) {
+                properties.id = row.id;
+            }
+            return {
+                type: "Feature",
+                geometry: row.geometry,
+                properties,
+            };
+        });
         return {
             type: "FeatureCollection",
             features,
