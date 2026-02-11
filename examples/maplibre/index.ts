@@ -53,7 +53,10 @@ map.on("load", async () => {
 
   try {
     const long_island_bbox = [-73.2, 40.9, -73, 41] as [number, number, number, number];
+    let start = Date.now();
     const fc = await client.get_features_inside_bbox(long_island_bbox);
+    let end = Date.now();
+    console.log(`Loaded ${fc.features.length} features in ${end - start}ms`);
 
     // Add a source for all features
     map.addSource("geoconnex", { type: "geojson", data: fc });
