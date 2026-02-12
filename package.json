@@ -9,6 +9,9 @@
     "dev:leaflet": "vite examples/leaflet",
     "dev:script": "npx tsx examples/script/index.ts"
   },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
