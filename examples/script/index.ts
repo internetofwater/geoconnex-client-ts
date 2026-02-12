@@ -7,5 +7,5 @@ const long_island_bbox = [-73.2, 40.5, -73, 41] as [
   number,
   number,
 ];
-const fc = await client.get_features_inside_bbox(long_island_bbox);
+const fc = await client.get_features_inside_bbox(long_island_bbox, ["bbox", "geoconnex_sitemap", "geometry"]);
 console.log(fc);
