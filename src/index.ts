@@ -89,8 +89,10 @@ export class GeoconnexClient {
       file: buffer,
       columns: columns_to_fetch,
       filter: {
-        "bbox.xmin": { $gte: xmin, $lte: xmax },
-        "bbox.ymin": { $gte: ymin, $lte: ymax },
+        "bbox.xmin": { $gte: xmin },
+        "bbox.xmax": { $lte: xmax },
+        "bbox.ymin": { $gte: ymin },
+        "bbox.ymax": { $lte: ymax },
       },
       compressors,
       geoparquet: true,
