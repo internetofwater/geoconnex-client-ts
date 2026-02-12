@@ -1,4 +1,14 @@
-import { asyncBufferFromUrl, parquetQuery, type AsyncBuffer } from "hyparquet";
+/**
+ * Copyright 2026 Lincoln Institute of Land Policy
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import {
+  asyncBufferFromUrl,
+  cachedAsyncBuffer,
+  parquetQuery,
+  type AsyncBuffer,
+} from "hyparquet";
 import { compressors } from "hyparquet-compressors";
 import type { FeatureCollection, Geometry, Feature, BBox } from "geojson";
 
@@ -8,6 +18,10 @@ export type GeoconnexColumnName =
   | "bbox"
   | "geoconnex_sitemap";
 
+export type GeoconnexClientOptions = {
+  cache?: boolean;
+};
+
 /**
  * A client for fetching geojson features from geoconnex
  */
@@ -16,24 +30,32 @@ export class GeoconnexClient {
   base_url: string;
   /** Buffer containing geoconnex features */
   #buffer?: AsyncBuffer;
+  /** Cached buffer containing geoconnex features */
+  #cache?: AsyncBuffer;
+  /** Options for the client */
+  options: GeoconnexClientOptions;
 
-  constructor() {
+  constructor(options: GeoconnexClientOptions = {}) {
+    this.options = options;
     this.base_url =
       "https://storage.googleapis.com/metadata-geoconnex-us/exports/geoconnex_features.parquet";
   }
 
-  /**
-   * Get all features in geoconnex that are completely within a bounding box
-   * @param bbox [xmin, ymin, xmax, ymax]
-   * @returns a feature collection of all features contained in the bbox
-   */
-  async get_features_inside_bbox(
-    bbox: BBox,
-    columns_to_fetch: GeoconnexColumnName[] = ["id", "geometry"],
-  ): Promise<FeatureCollection<Geometry>> {
+  /** Initialize the buffer for fetching */
+  async #init_buffer() {
     if (!this.#buffer) {
       this.#buffer = await asyncBufferFromUrl({ url: this.base_url });
     }
+    if (this.options.cache && !this.#cache) {
+      this.#cache = cachedAsyncBuffer(this.#buffer);
+      return this.#cache;
+    } else {
+      return this.#buffer;
+    }
+  }
+
+  /** Validate the bbox */
+  #validate_bbox(bbox: BBox): [number, number, number, number] {
     if (bbox.length != 4) {
       throw new Error("bbox must be length 4");
     }
@@ -43,11 +65,28 @@ export class GeoconnexClient {
     if (bbox[1] > bbox[3]) {
       throw new Error("bbox[1], ymin must be less than bbox[3], ymax");
     }
+    return bbox;
+  }
 
-    const [xmin, ymin, xmax, ymax] = bbox;
+  /**
+   * Get all features in geoconnex that are completely within a bounding box
+   * @param bbox [xmin, ymin, xmax, ymax]
+   * @returns a feature collection of all features contained in the bbox
+   */
+  async get_features_inside_bbox(
+    bbox: BBox,
+    columns_to_fetch: GeoconnexColumnName[] = [
+      "id",
+      "geometry",
+      "geoconnex_sitemap",
+    ],
+  ): Promise<FeatureCollection<Geometry>> {
+    let buffer = await this.#init_buffer();
+
+    const [xmin, ymin, xmax, ymax] = this.#validate_bbox(bbox);
 
     const rows = await parquetQuery({
-      file: this.#buffer,
+      file: buffer,
       columns: columns_to_fetch,
       filter: {
         "bbox.xmin": { $gte: xmin, $lte: xmax },
@@ -57,7 +96,7 @@ export class GeoconnexClient {
       geoparquet: true,
     });
     const features: Feature<Geometry>[] = rows.map((row: any) => {
-      const properties: {geoconnex_sitemap?: string; id?: string} = {};
+      const properties: { geoconnex_sitemap?: string; id?: string } = {};
 
       // Only add geoconnex_sitemap if it was requested and exists in the row
       if (columns_to_fetch.includes("geoconnex_sitemap")) {
@@ -90,25 +129,14 @@ export class GeoconnexClient {
    */
   async get_features_intersecting_bbox(
     bbox: BBox,
-    columns_to_fetch: GeoconnexColumnName[] = ["id", "geometry"],
+    columns_to_fetch: GeoconnexColumnName[] = ["id", "geometry", "geoconnex_sitemap"],
   ): Promise<FeatureCollection<Geometry>> {
-    if (!this.#buffer) {
-      this.#buffer = await asyncBufferFromUrl({ url: this.base_url });
-    }
-    if (bbox.length != 4) {
-      throw new Error("bbox must be length 4");
-    }
-    if (bbox[0] > bbox[2]) {
-      throw new Error("bbox[0], xmin must be less than bbox[2], xmax");
-    }
-    if (bbox[1] > bbox[3]) {
-      throw new Error("bbox[1], ymin must be less than bbox[3], ymax");
-    }
+    const buffer = await this.#init_buffer();
 
-    const [xmin, ymin, xmax, ymax] = bbox;
+    const [xmin, ymin, xmax, ymax] = this.#validate_bbox(bbox);
 
     const rows = await parquetQuery({
-      file: this.#buffer,
+      file: buffer,
       columns: columns_to_fetch,
       filter: {
         "bbox.xmin": { $lte: xmax },
@@ -120,7 +148,7 @@ export class GeoconnexClient {
       geoparquet: true,
     });
     const features: Feature<Geometry>[] = rows.map((row: any) => {
-      const properties: any = { };
+      const properties: any = {};
 
       // Only add geoconnex_sitemap if it was requested and exists in the row
       if (columns_to_fetch.includes("geoconnex_sitemap")) {

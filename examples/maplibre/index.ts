@@ -1,3 +1,8 @@
+/**
+ * Copyright 2026 Lincoln Institute of Land Policy
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import maplibregl from "maplibre-gl";
 import { GeoconnexClient } from "../../src/index";
 import * as turf from "@turf/turf";

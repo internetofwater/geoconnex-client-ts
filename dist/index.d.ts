@@ -1,5 +1,12 @@
+/**
+ * Copyright 2026 Lincoln Institute of Land Policy
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import type { FeatureCollection, Geometry, BBox } from "geojson";
 export type GeoconnexColumnName = "id" | "geometry" | "bbox" | "geoconnex_sitemap";
+export type GeoconnexClientOptions = {
+    cache?: boolean;
+};
 /**
  * A client for fetching geojson features from geoconnex
  */
@@ -7,7 +14,9 @@ export declare class GeoconnexClient {
     #private;
     /** Base URL for fetching geoconnex features */
     base_url: string;
-    constructor();
+    /** Options for the client */
+    options: GeoconnexClientOptions;
+    constructor(options?: GeoconnexClientOptions);
     /**
      * Get all features in geoconnex that are completely within a bounding box
      * @param bbox [xmin, ymin, xmax, ymax]

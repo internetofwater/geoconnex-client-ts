@@ -1,0 +1,54 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+minimum_pre_commit_version: "2.9.0"
+ci:
+  autoupdate_schedule: monthly
+  skip: [ts build]
+repos:
+  - repo: meta
+    hooks:
+      - id: check-useless-excludes
+  - repo: local
+    hooks:
+      - id: forbid-symlinks
+        name: Forbid symlinks
+        entry: Forbid symlinks
+        language: fail
+        types: [symlink]
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.6
+    hooks:
+      - id: forbid-crlf
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+  - repo: https://github.com/google/addlicense
+    rev: "v1.2.0"
+    hooks:
+      - id: addlicense
+        args:
+          ["-s=only", -l, "Apache-2.0", -c, "Lincoln Institute of Land Policy"]
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.105.0
+    hooks:
+      - id: terraform_fmt
+        name: terraform_fmt
+      - id: terraform_validate
+        name: terraform_validate
+  - repo: local
+    hooks: 
+      - id: ts build
+        name: Ensure no frontend build errors
+        entry: "npm run build"
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false # build handles files itself
