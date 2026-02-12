@@ -89,10 +89,12 @@ export class GeoconnexClient {
       file: buffer,
       columns: columns_to_fetch,
       filter: {
-        "bbox.xmin": { $gte: xmin },
-        "bbox.xmax": { $lte: xmax },
-        "bbox.ymin": { $gte: ymin },
-        "bbox.ymax": { $lte: ymax },
+        "$and": [
+          {"bbox.xmin": { $gte: xmin }},
+          {"bbox.xmax": { $lte: xmax }},
+          {"bbox.ymin": { $gte: ymin }},
+          {"bbox.ymax": { $lte: ymax }},
+        ]
       },
       compressors,
       geoparquet: true,
@@ -141,10 +143,12 @@ export class GeoconnexClient {
       file: buffer,
       columns: columns_to_fetch,
       filter: {
-        "bbox.xmin": { $lte: xmax },
-        "bbox.xmax": { $gte: xmin },
-        "bbox.ymin": { $lte: ymax },
-        "bbox.ymax": { $gte: ymin },
+        $or: [
+          { "bbox.xmin": { $gte: xmin } },
+          { "bbox.xmax": { $lte: xmax } },
+          { "bbox.ymin": { $gte: ymin } },
+          { "bbox.ymax": { $lte: ymax } },
+        ],
       },
       compressors,
       geoparquet: true,
