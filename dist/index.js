@@ -2,140 +2,86 @@
  * Copyright 2026 Lincoln Institute of Land Policy
  * SPDX-License-Identifier: Apache-2.0
  */
-import { asyncBufferFromUrl, cachedAsyncBuffer, parquetQuery, } from "hyparquet";
-import { compressors } from "hyparquet-compressors";
-/**
- * A client for fetching geojson features from geoconnex
- */
 export class GeoconnexClient {
-    /** Base URL for fetching geoconnex features */
     base_url;
-    /** Buffer containing geoconnex features */
-    #buffer;
-    /** Cached buffer containing geoconnex features */
-    #cache;
-    /** Options for the client */
-    options;
-    constructor(options = {}) {
-        this.options = options;
+    items_url;
+    constructor() {
         this.base_url =
-            "https://storage.googleapis.com/metadata-geoconnex-us/exports/geoconnex_features.parquet";
+            "https://features.geoconnex.us/collections/GeoconnexFeatures";
+        this.items_url = `${this.base_url}/items`;
     }
-    /** Initialize the buffer for fetching */
-    async #init_buffer() {
-        if (!this.#buffer) {
-            this.#buffer = await asyncBufferFromUrl({ url: this.base_url });
-        }
-        if (this.options.cache && !this.#cache) {
-            this.#cache = cachedAsyncBuffer(this.#buffer);
-            return this.#cache;
-        }
-        else {
-            return this.#buffer;
-        }
-    }
-    /** Validate the bbox */
     #validate_bbox(bbox) {
-        if (bbox.length != 4) {
+        if (bbox.length !== 4)
             throw new Error("bbox must be length 4");
-        }
-        if (bbox[0] > bbox[2]) {
-            throw new Error("bbox[0], xmin must be less than bbox[2], xmax");
-        }
-        if (bbox[1] > bbox[3]) {
-            throw new Error("bbox[1], ymin must be less than bbox[3], ymax");
-        }
+        if (bbox[0] > bbox[2])
+            throw new Error("xmin must be <= xmax");
+        if (bbox[1] > bbox[3])
+            throw new Error("ymin must be <= ymax");
         return bbox;
     }
-    /**
-     * Get all features in geoconnex that are completely within a bounding box
-     * @param bbox [xmin, ymin, xmax, ymax]
-     * @returns a feature collection of all features contained in the bbox
-     */
-    async get_features_inside_bbox(bbox, columns_to_fetch = [
-        "id",
-        "geometry",
-        "geoconnex_sitemap",
-    ]) {
-        let buffer = await this.#init_buffer();
-        const [xmin, ymin, xmax, ymax] = this.#validate_bbox(bbox);
-        const rows = await parquetQuery({
-            file: buffer,
-            columns: columns_to_fetch,
-            filter: {
-                "$and": [
-                    { "bbox.xmin": { $gte: xmin } },
-                    { "bbox.xmax": { $lte: xmax } },
-                    { "bbox.ymin": { $gte: ymin } },
-                    { "bbox.ymax": { $lte: ymax } },
-                ]
-            },
-            compressors,
-            geoparquet: true,
-        });
-        const features = rows.map((row) => {
-            const properties = {};
-            // Only add geoconnex_sitemap if it was requested and exists in the row
-            if (columns_to_fetch.includes("geoconnex_sitemap")) {
-                properties.geoconnex_sitemap = row.geoconnex_sitemap;
-            }
-            if (columns_to_fetch.includes("id")) {
-                properties.id = row.id;
-            }
-            return {
-                type: "Feature",
-                geometry: row.geometry,
-                properties,
-            };
-        });
-        return {
-            type: "FeatureCollection",
-            features,
-            bbox,
-        };
+    #bbox_to_string([xmin, ymin, xmax, ymax]) {
+        return `${xmin},${ymin},${xmax},${ymax}`;
     }
-    /**
-     * Get all features in geoconnex that intersect a bounding box; NOTE: this may
-     * return very large features representing administrative boundaries
-     * @param bbox [xmin, ymin, xmax, ymax]
-     * @returns a feature collection of all features contained in the bbox
-     */
-    async get_features_intersecting_bbox(bbox, columns_to_fetch = ["id", "geometry", "geoconnex_sitemap"]) {
-        const buffer = await this.#init_buffer();
-        const [xmin, ymin, xmax, ymax] = this.#validate_bbox(bbox);
-        const rows = await parquetQuery({
-            file: buffer,
-            columns: columns_to_fetch,
-            filter: {
-                $or: [
-                    { "bbox.xmin": { $gte: xmin } },
-                    { "bbox.xmax": { $lte: xmax } },
-                    { "bbox.ymin": { $gte: ymin } },
-                    { "bbox.ymax": { $lte: ymax } },
-                ],
-            },
-            compressors,
-            geoparquet: true,
-        });
-        const features = rows.map((row) => {
-            const properties = {};
-            // Only add geoconnex_sitemap if it was requested and exists in the row
-            if (columns_to_fetch.includes("geoconnex_sitemap")) {
-                properties.geoconnex_sitemap = row.geoconnex_sitemap;
+    #build_cql(options) {
+        const clauses = [];
+        if (options.inside_wkt) {
+            clauses.push(`CONTAINS(${options.inside_wkt}, geometry)`);
+        }
+        if (options.feature_name_ilike) {
+            let cql_filter = "feature_name ILIKE ";
+            if (options.feature_name_ilike.glob_before) {
+                cql_filter += "'%";
             }
-            if (columns_to_fetch.includes("id")) {
-                properties.id = row.id;
+            else {
+                cql_filter += '\'';
             }
-            return {
-                type: "Feature",
-                geometry: row.geometry,
-                properties,
-            };
-        });
-        return {
-            type: "FeatureCollection",
-            features,
-            bbox,
-        };
+            cql_filter += `${options.feature_name_ilike.key}`;
+            if (options.feature_name_ilike.glob_after) {
+                cql_filter += "%'";
+            }
+            else {
+                cql_filter += "'";
+            }
+            clauses.push(cql_filter);
+        }
+        if (clauses.length === 0)
+            return undefined;
+        return clauses.join(" AND ");
+    }
+    #build_url(options = {}, item_id) {
+        const params = new URLSearchParams();
+        if (options.bbox) {
+            const bbox = this.#validate_bbox(options.bbox);
+            params.set("bbox", this.#bbox_to_string(bbox));
+        }
+        if (options.limit) {
+            params.set("limit", String(options.limit));
+        }
+        if (options.geoconnex_sitemap_filter) {
+            params.set("geoconnex_sitemap_filter", options.geoconnex_sitemap_filter);
+        }
+        const cql = this.#build_cql(options);
+        if (cql) {
+            params.set("filter", cql);
+        }
+        if (item_id) {
+            return `${this.items_url}/${item_id}?${params.toString()}`;
+        }
+        return `${this.items_url}?${params.toString()}`;
+    }
+    async #fetch_json(url) {
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+        }
+        return res.json();
+    }
+    async get_features(options = {}) {
+        const url = this.#build_url(options);
+        return this.#fetch_json(url);
+    }
+    async get_feature(item_id, options = {}) {
+        const url = this.#build_url(options, item_id);
+        return this.#fetch_json(url);
     }
 }

@@ -16,7 +16,20 @@ const map = new maplibregl.Map({
   zoom: 10,
 });
 
-// Create loading spinner element
+/** ---------------------------
+ * WKT helper (FIXED)
+ * -------------------------- */
+function boundsToWKT(bounds: maplibregl.LngLatBounds): string {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  // single-line, no whitespace issues
+  return `POLYGON((${sw.lng} ${sw.lat},${ne.lng} ${sw.lat},${ne.lng} ${ne.lat},${sw.lng} ${ne.lat},${sw.lng} ${sw.lat}))`;
+}
+
+/** ---------------------------
+ * Spinner
+ * -------------------------- */
 const loadingSpinner = document.createElement("div");
 loadingSpinner.id = "loading-spinner";
 loadingSpinner.innerHTML = `
@@ -52,134 +65,170 @@ loadingSpinner.innerHTML = `
   </style>
 `;
 
-map.on("load", async () => {
-  // Show loading spinner
-  map.getContainer().appendChild(loadingSpinner);
-
+/** ---------------------------
+ * Load features
+ * -------------------------- */
+async function loadFeatures() {
   try {
-    const long_island_bbox = [-73.2, 40.5, -73, 41] as [number, number, number, number];
-    let start = Date.now();
-    const fc = await client.get_features_inside_bbox(long_island_bbox);
-    let end = Date.now();
+    if (!loadingSpinner.parentNode) {
+      map.getContainer().appendChild(loadingSpinner);
+    }
+
+    const bounds = map.getBounds();
+    const wkt = boundsToWKT(bounds);
+
+    console.log("WKT:", wkt); // debug
+
+    const start = Date.now();
+
+    const fc = await client.get_features({
+      inside_wkt: wkt,
+      feature_name_ilike: {
+        "glob_after": true,
+        "glob_before": true,
+        "key": "college"
+      },
+      geoconnex_sitemap_filter: "bulk_gnis_gnis__0",
+      limit: 100,
+    });
+
+    const end = Date.now();
     console.log(`Loaded ${fc.features.length} features in ${end - start}ms`);
 
-    // Add a source for all features
-    map.addSource("geoconnex", { type: "geojson", data: fc });
+    const source = map.getSource("geoconnex") as maplibregl.GeoJSONSource;
 
-    // Layer for polygons (fill)
-    map.addLayer({
-      id: "geoconnex-fill",
-      type: "fill",
-      source: "geoconnex",
-      paint: {
-        "fill-color": "#ff5500",
-        "fill-opacity": 0.3,
-      },
-      filter: ["==", "$type", "Polygon"],
-    });
+    if (source) {
+      source.setData(fc);
+    } else {
+      map.addSource("geoconnex", { type: "geojson", data: fc });
 
-    // Outline layer for polygons
-    map.addLayer({
-      id: "geoconnex-outline",
-      type: "line",
-      source: "geoconnex",
-      paint: {
-        "line-color": "#ff5500",
-        "line-width": 2,
-      },
-      filter: ["==", "$type", "Polygon"],
-    });
+      // Polygon fill
+      map.addLayer({
+        id: "geoconnex-fill",
+        type: "fill",
+        source: "geoconnex",
+        paint: {
+          "fill-color": "#ff5500",
+          "fill-opacity": 0.3,
+        },
+        filter: ["==", "$type", "Polygon"],
+      });
 
-    // Layer for LineStrings
-    map.addLayer({
-      id: "geoconnex-lines",
-      type: "line",
-      source: "geoconnex",
-      paint: {
-        "line-color": "#ff5500",
-        "line-width": 3,
-      },
-      filter: ["==", "$type", "LineString"],
-    });
+      // Polygon outline
+      map.addLayer({
+        id: "geoconnex-outline",
+        type: "line",
+        source: "geoconnex",
+        paint: {
+          "line-color": "#ff5500",
+          "line-width": 2,
+        },
+        filter: ["==", "$type", "Polygon"],
+      });
 
-    // Layer for points
-    map.addLayer({
-      id: "geoconnex-points",
-      type: "circle",
-      source: "geoconnex",
-      paint: {
-        "circle-radius": 6,
-        "circle-color": "#ff5500",
-      },
-      filter: ["==", "$type", "Point"],
-    });
+      // Lines
+      map.addLayer({
+        id: "geoconnex-lines",
+        type: "line",
+        source: "geoconnex",
+        paint: {
+          "line-color": "#ff5500",
+          "line-width": 3,
+        },
+        filter: ["==", "$type", "LineString"],
+      });
 
-    // Click handler for all geometry types
-    const handleClick = (e: { features: string | any[]; }) => {
-      if (!e.features || e.features.length === 0) return;
+      // Points
+      map.addLayer({
+        id: "geoconnex-points",
+        type: "circle",
+        source: "geoconnex",
+        paint: {
+          "circle-radius": 6,
+          "circle-color": "#ff5500",
+        },
+        filter: ["==", "$type", "Point"],
+      });
 
-      const feature = e.features[0];
-      const featureId = feature.properties?.id || feature.id || "No ID";
+      /** ---------------------------
+       * Click handler
+       * -------------------------- */
+      const handleClick = (e: any) => {
+        if (!e.features || e.features.length === 0) return;
 
-      let coords = null;
+        const feature = e.features[0];
+        const featureId = feature.properties?.id || feature.id || "No ID";
 
-      // Handle different geometry types
-      if (feature.geometry.type === "Point") {
-        coords = feature.geometry.coordinates;
-      } else if (feature.geometry.type === "LineString") {
-        // Use midpoint of line
-        coords = turf.along(feature, turf.length(feature) / 2).geometry
-          .coordinates;
-      } else if (
-        feature.geometry.type === "Polygon" ||
-        feature.geometry.type === "MultiPolygon"
-      ) {
-        // Use centroid for polygons
-        coords = turf.centroid(feature).geometry.coordinates;
-      } else if (feature.geometry.type === "MultiPoint") {
-        // Use first point of multipoint
-        coords = feature.geometry.coordinates[0];
-      } else if (feature.geometry.type === "MultiLineString") {
-        // Use centroid of all lines
-        coords = turf.centroid(feature).geometry.coordinates;
-      }
+        let coords = null;
 
-      if (coords) {
-        new maplibregl.Popup()
-          .setLngLat(coords)
-          .setHTML(`<strong>ID:</strong> ${featureId}`)
-          .addTo(map);
-      }
-    };
+        if (feature.geometry.type === "Point") {
+          coords = feature.geometry.coordinates;
+        } else if (feature.geometry.type === "LineString") {
+          coords = turf.along(feature, turf.length(feature) / 2).geometry
+            .coordinates;
+        } else {
+          coords = turf.centroid(feature).geometry.coordinates;
+        }
 
-    // Add click handlers to all layers
-    ["geoconnex-fill", "geoconnex-lines", "geoconnex-points"].forEach(
-      (layer) => {
-        map.on("click", layer, handleClick);
-      },
-    );
+        if (coords) {
+          new maplibregl.Popup()
+            .setLngLat(coords)
+            .setHTML(
+              `
+              <strong>ID:</strong> ${featureId}<br/>
+              <strong>Name:</strong> ${feature.properties?.feature_name || "N/A"}<br/>
+              <strong>Sitemap:</strong> ${feature.properties?.geoconnex_sitemap || "N/A"}
+            `,
+            )
+            .addTo(map);
+        }
+      };
 
-    // Hover cursor for all layers
-    [
-      "geoconnex-fill",
-      "geoconnex-outline",
-      "geoconnex-lines",
-      "geoconnex-points",
-    ].forEach((layer) => {
-      map.on(
-        "mouseenter",
-        layer,
-        () => (map.getCanvas().style.cursor = "pointer"),
+      ["geoconnex-fill", "geoconnex-lines", "geoconnex-points"].forEach(
+        (layer) => map.on("click", layer, handleClick),
       );
-      map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
-    });
+
+      // Cursor hover
+      [
+        "geoconnex-fill",
+        "geoconnex-outline",
+        "geoconnex-lines",
+        "geoconnex-points",
+      ].forEach((layer) => {
+        map.on(
+          "mouseenter",
+          layer,
+          () => (map.getCanvas().style.cursor = "pointer"),
+        );
+        map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
+      });
+    }
   } catch (error) {
     console.error("Error loading features:", error);
-    alert("Failed to load features. Please try again.");
+    alert("Failed to load features.");
   } finally {
-    // Remove loading spinner
     if (loadingSpinner.parentNode) {
       loadingSpinner.parentNode.removeChild(loadingSpinner);
     }
   }
+}
+
+/** ---------------------------
+ * Init
+ * -------------------------- */
+map.on("load", () => {
+  loadFeatures();
+});
+
+/** ---------------------------
+ * Reload on move (debounced)
+ * -------------------------- */
+let timeout: number | undefined;
+
+map.on("moveend", () => {
+  if (timeout) clearTimeout(timeout);
+
+  timeout = window.setTimeout(() => {
+    loadFeatures();
+  }, 300);
 });
