@@ -12,4 +12,4 @@ This service is intended to be used by applications that need access to Geoconne
 
 This package is used to power the playground for exploring Geoconnex Features here: https://docs.geoconnex.us/playground/features
 
-A directory of other examples showing how to incorperate this client into a standalone script, leaflet, maplibre can be found in this repo [here](./examples/).
+A directory of other examples showing how to incorperate this client into a standalone script, leaflet, maplibre can be found in this repo [here](https://github.com/internetofwater/geoconnex-client-ts/tree/main/examples).
