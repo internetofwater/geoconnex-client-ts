@@ -6,18 +6,24 @@
 import type { FeatureCollection, Geometry, BBox } from "geojson";
 
 export interface GeoconnexRetrievalOptions {
-  bbox?: BBox; // intersection, not contains
+  // This performs an intersection, not contains
+  bbox?: BBox;
   limit?: number;
 
-  // NEW: supports CQL IN (...)
+  // used for CQL IN (...)
   geoconnex_sitemap_in?: string[];
 
+  // used for CQL ILIKE
   feature_name_ilike?: {
     key: string;
+    // if true, the key can have wildcards at the start of the string
     glob_before: boolean;
+    // if true, the key can have wildcards at the end of the string
     glob_after: boolean;
   };
 
+  // This performs a geospatial contains query, not an intersection
+  // if the feature is not entirely within the wkt, it will not be returned
   inside_wkt?: string;
 }
 

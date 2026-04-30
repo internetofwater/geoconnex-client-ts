@@ -1,7 +1,7 @@
 {
   "name": "geoconnex-client-ts",
   "private": false,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -10,6 +10,10 @@
     "example:bbox": "npx tsx examples/script/bbox.ts",
     "example:huc_search": "npx tsx examples/script/huc_search.ts",
     "example:maplibre_search_by_name": "vite examples/maplibre_search_by_name"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/internetofwater/geoconnex-client-ts"
   },
   "engines": {
     "node": ">=24.0.0"
