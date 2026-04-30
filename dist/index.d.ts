@@ -6,7 +6,7 @@ import type { FeatureCollection, Geometry, BBox } from "geojson";
 export interface GeoconnexRetrievalOptions {
     bbox?: BBox;
     limit?: number;
-    geoconnex_sitemap_filter?: string;
+    geoconnex_sitemap_in?: string[];
     feature_name_ilike?: {
         key: string;
         glob_before: boolean;

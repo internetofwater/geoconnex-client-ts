@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev:maplibre": "vite examples/maplibre",
-    "dev:leaflet": "vite examples/leaflet",
-    "dev:script": "npx tsx examples/script/index.ts",
-    "dev:search": "vite examples/search_by_name"
+    "example:maplibre": "vite examples/maplibre",
+    "example:leaflet": "vite examples/leaflet",
+    "example:bbox": "npx tsx examples/script/bbox.ts",
+    "example:huc_search": "npx tsx examples/script/huc_search.ts",
+    "example:maplibre_search_by_name": "vite examples/maplibre_search_by_name"
   },
   "engines": {
     "node": ">=24.0.0"
@@ -29,9 +30,5 @@
     "maplibre-gl": "^5.18.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
-  },
-  "dependencies": {
-    "hyparquet": "^1.25.0",
-    "hyparquet-compressors": "^1.1.1"
   }
 }

@@ -22,27 +22,32 @@ export class GeoconnexClient {
     #bbox_to_string([xmin, ymin, xmax, ymax]) {
         return `${xmin},${ymin},${xmax},${ymax}`;
     }
+    // Basic SQL/CQL string escaping
+    #escape(value) {
+        return value.replace(/'/g, "''");
+    }
     #build_cql(options) {
         const clauses = [];
         if (options.inside_wkt) {
             clauses.push(`CONTAINS(${options.inside_wkt}, geometry)`);
         }
+        // geoconnex_sitemap IN (...)
+        if (options.geoconnex_sitemap_in?.length) {
+            const values = options.geoconnex_sitemap_in
+                .map((v) => `'${this.#escape(v)}'`)
+                .join(",");
+            clauses.push(`geoconnex_sitemap IN (${values})`);
+        }
         if (options.feature_name_ilike) {
-            let cql_filter = "feature_name ILIKE ";
-            if (options.feature_name_ilike.glob_before) {
-                cql_filter += "'%";
-            }
-            else {
-                cql_filter += '\'';
-            }
-            cql_filter += `${options.feature_name_ilike.key}`;
-            if (options.feature_name_ilike.glob_after) {
-                cql_filter += "%'";
-            }
-            else {
-                cql_filter += "'";
-            }
-            clauses.push(cql_filter);
+            const { key, glob_before, glob_after } = options.feature_name_ilike;
+            let pattern = "'";
+            if (glob_before)
+                pattern += "%";
+            pattern += this.#escape(key);
+            if (glob_after)
+                pattern += "%";
+            pattern += "'";
+            clauses.push(`feature_name ILIKE ${pattern}`);
         }
         if (clauses.length === 0)
             return undefined;
@@ -56,9 +61,6 @@ export class GeoconnexClient {
         }
         if (options.limit) {
             params.set("limit", String(options.limit));
-        }
-        if (options.geoconnex_sitemap_filter) {
-            params.set("geoconnex_sitemap_filter", options.geoconnex_sitemap_filter);
         }
         const cql = this.#build_cql(options);
         if (cql) {
