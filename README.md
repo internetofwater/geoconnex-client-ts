@@ -12,7 +12,7 @@ npm i geoconnex-client-ts
 
 ## Intended Use Case
 
-This service is intended to be used by applications that need access to Geoconnex Features in a lossless way or do text lookups for specific features. For example, for GIS analysis or hydrological modeling. If you simply want to power a map applcation, it is best to use the Geoconnex tiles export [here](https://storage.googleapis.com/metadata-geoconnex-us/exports/geoconnex_features.pmtiles) as that is more efficient and can simplify some of the otherwise complex geometries. 
+This service is intended to be used by applications that need access to Geoconnex Features in a lossless way or do text lookups for specific features. For example, for GIS analysis or hydrological modeling. If you simply want to power a map applcation, it is best to use the Geoconnex pmtiles export as that is more efficient and can simplify some of the otherwise complex geometries. 
 
 ## Examples
 
